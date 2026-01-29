@@ -30,7 +30,12 @@ jobs:
           cd simple_live_app
           flutter pub get
 
-      # 关键修复 1：生成一个真实的临时 .jks 签名文件
+      # 关键修复 1：根据日志建议，自动修改 build.gradle.kts 里的 NDK 版本
+      - name: Patch NDK Version
+        run: |
+          sed -i 's/ndkVersion = .*/ndkVersion = "28.2.13676358"/' simple_live_app/android/app/build.gradle.kts
+
+      # 关键修复 2：生成 JKS 文件到 android/app 目录下
       - name: Generate dummy Keystore
         run: |
           keytool -genkey -v -keystore simple_live_app/android/app/key.jks \
@@ -38,17 +43,16 @@ jobs:
             -alias upload -storepass password123 -keypass password123 \
             -dname "CN=Example, OU=Example, O=Example, L=Example, S=Example, C=US"
 
-      # 关键修复 2：创建指向该文件的 key.properties
+      # 关键修复 3：创建 key.properties，注意 storeFile 路径直接写文件名
       - name: Create key.properties
         run: |
           cat <<EOF > simple_live_app/android/key.properties
           storePassword=password123
           keyPassword=password123
           keyAlias=upload
-          storeFile=app/key.jks
+          storeFile=key.jks
           EOF
 
-      # 关键修复 3：根据日志建议，强制指定 NDK 版本以避免潜在冲突
       - name: Build APK
         run: |
           cd simple_live_app
