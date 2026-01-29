@@ -30,23 +30,30 @@ jobs:
           cd simple_live_app
           flutter pub get
 
-      # 关键修复：在 android 目录下创建 key.properties
-      # 这会填充 Gradle 脚本中需要的变量，防止出现 null 强转 String 的错误
-      - name: Create dummy key.properties
+      # 关键修复 1：生成一个真实的临时 .jks 签名文件
+      - name: Generate dummy Keystore
+        run: |
+          keytool -genkey -v -keystore simple_live_app/android/app/key.jks \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias upload -storepass password123 -keypass password123 \
+            -dname "CN=Example, OU=Example, O=Example, L=Example, S=Example, C=US"
+
+      # 关键修复 2：创建指向该文件的 key.properties
+      - name: Create key.properties
         run: |
           cat <<EOF > simple_live_app/android/key.properties
           storePassword=password123
           keyPassword=password123
           keyAlias=upload
-          storeFile=key.jks
+          storeFile=app/key.jks
           EOF
 
+      # 关键修复 3：根据日志建议，强制指定 NDK 版本以避免潜在冲突
       - name: Build APK
         run: |
           cd simple_live_app
-          # 移除了错误的 --project-parameter
-          # 使用标准的 --build-name 定义版本
-          flutter build apk --release --split-per-abi --no-tree-shake-icons --build-name=1.0.0 --build-number=1
+          flutter build apk --release --split-per-abi --no-tree-shake-icons \
+            --build-name=1.0.0 --build-number=1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
